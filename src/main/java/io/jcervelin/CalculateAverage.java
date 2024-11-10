@@ -5,34 +5,36 @@ import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+import static io.jcervelin.MemoryLogger.logMemoryUsage;
 import static java.lang.System.*;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.groupingByConcurrent;
 
 public class CalculateAverage {
 
-    private static final String FILE = "./measurements_1B.txt";
     private static final long SIZE = 10_000_000;
     private static final char LINE_BREAK = '\n';
 
 
     public static void main(String[] args) throws IOException {
-        boolean isVirtual = false;
+        String path = args[0];
+        boolean isVirtual = true;
         try {
-            isVirtual = Boolean.getBoolean(args[0]);
+            isVirtual = Boolean.parseBoolean(args[1]);
             if (isVirtual) {
                 out.println("Running on virtual threads");
             } else {
                 out.println("Running on regular threads");
             }
         } catch (Exception e) {
-            out.println("Running on regular threads");
+            out.println("Running on virtual threads");
         }
 
         long start = currentTimeMillis();
-        try (RandomAccessFile file = new RandomAccessFile(FILE, "r")) {
+        try (RandomAccessFile file = new RandomAccessFile(path, "r")) {
             List<Split> splits = splitFile(file);
 
             Map<Place, TotalTemp> placeTotalTempMap = calculateTemperature(splits, file, isVirtual);
@@ -74,11 +76,12 @@ public class CalculateAverage {
     private static Map<Place, TotalTemp> calculateTemperature(List<Split> splits, RandomAccessFile file, boolean isVirtual) {
 
         try (ExecutorService executorService = isVirtual ? Executors.newVirtualThreadPerTaskExecutor() :
-                Executors.newFixedThreadPool(splits.size())) {
-
-            List<Future<Map<Place, TotalTemp>>> list = splits.stream()
+                Executors.newCachedThreadPool()
+        ) {
+            out.println("Number of processors: " + Runtime.getRuntime().availableProcessors());
+            out.println("Number of chunks: " + splits.size());
+            List<Future<Map<Place, TotalTemp>>> list = splits.parallelStream()
                     .map(filePart -> executorService.submit(() -> parse(filePart, file))).toList();
-
             return list.stream()
                     .map(mapFuture -> {
                         try {
@@ -97,10 +100,14 @@ public class CalculateAverage {
         }
 
     }
+    static AtomicInteger counter = new AtomicInteger();
 
     private static Map<Place, TotalTemp> parse(Split split, RandomAccessFile file) {
         try {
             byte[] bytes = fromSplitToBytes(split, file);
+            if (counter.incrementAndGet() % 100 == 0) {
+                logMemoryUsage();
+            }
             return bytesToPlaceMap(bytes);
         } catch (IOException e) {
             throw new RuntimeException(e);
