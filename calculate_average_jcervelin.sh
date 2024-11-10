@@ -17,5 +17,5 @@
 
 
 #jbang --javaagent=ap-loader@jvm-profiling-tools/ap-loader=start,event=cpu,file=profile.html -m io.jcervelin.CalculateAverage target/average-1.0.0-SNAPSHOT.jar /Users/julianodb/IdeaProjects/1brc/measurements_1B.txt true
-JAVA_OPTS="-Xmx4G -Xms4G"
+JAVA_OPTS="-Xmx2G -Xms2G"
 java $JAVA_OPTS -cp target/average-1.0.0-SNAPSHOT.jar io.jcervelin.CalculateAverage /Users/julianodb/IdeaProjects/1brc/measurements_1B.txt $1

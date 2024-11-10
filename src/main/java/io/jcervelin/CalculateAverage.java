@@ -74,13 +74,14 @@ public class CalculateAverage {
     }
 
     private static Map<Place, TotalTemp> calculateTemperature(List<Split> splits, RandomAccessFile file, boolean isVirtual) {
+        int numProcessors = Runtime.getRuntime().availableProcessors() - 1;
+        out.println("Number of processors - 1: " + Runtime.getRuntime().availableProcessors());
 
         try (ExecutorService executorService = isVirtual ? Executors.newVirtualThreadPerTaskExecutor() :
-                Executors.newCachedThreadPool()
+                Executors.newFixedThreadPool(numProcessors)
         ) {
-            out.println("Number of processors: " + Runtime.getRuntime().availableProcessors());
             out.println("Number of chunks: " + splits.size());
-            List<Future<Map<Place, TotalTemp>>> list = splits.parallelStream()
+            List<Future<Map<Place, TotalTemp>>> list = splits.stream()
                     .map(filePart -> executorService.submit(() -> parse(filePart, file))).toList();
             return list.stream()
                     .map(mapFuture -> {
@@ -115,7 +116,7 @@ public class CalculateAverage {
     }
 
     private static Map<Place, TotalTemp> bytesToPlaceMap(byte[] bytes) {
-        Map<Place, TotalTemp> totalTemp = new HashMap<>(500);
+        Map<Place, TotalTemp> totalTemp = new HashMap<>(1024);
         int semicolonIndex = 0;
         int newLineIndex = -1;
         for (int i = 0; i < bytes.length; i++) {
